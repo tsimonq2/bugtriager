@@ -1,0 +1,46 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+import sys
+import time
+from launchpadlib.launchpad import Launchpad
+
+prod = Launchpad.login_with("tsimonq2's bug triage script", "production", "devel")
+
+message = "Thank you for taking the time to report this bug and helping to make Ubuntu better. We are sorry that we do not always have the capacity to look at all reported bugs in a timely manner. There have been many changes in Ubuntu since that time you reported the bug and your problem may have been fixed with some of the updates. It would help us a lot if you could test it on a currently supported Ubuntu version. If you test it and it is still an issue, kindly upload the updated logs by running only once:\napport-collect BUGNUMBER\n\nand any other logs that are relevant for this particular issue."
+#message = "Thank you for taking the time to report this bug and helping to make Ubuntu better. Unfortunately, we cannot work on this bug because your description didn't include enough information. You may find it helpful to read \"How to report bugs effectively\" http://www.chiark.greenend.org.uk/~sgtatham/bugs.html. We'd be grateful if you would then provide a more complete description of the problem.\n\nWe have instructions on debugging some types of problems at http://wiki.ubuntu.com/DebuggingProcedures.\n\nAt a minimum, we need:\n1. The specific steps or actions you took that caused you to encounter the problem.\n2. The behavior you expected.\n3. The behavior you actually encountered (in as much detail as possible).\nThanks!"
+
+bugs = []
+linenumber = 0
+
+try:
+    for bug in open("/tmp/bugs"):
+        linenumber = linenumber + 1
+        taskbug = "/bugs/"+str(bug).strip()
+        sys.stdout.write("Loading bug "+str(bug).strip()+".\t("+str(round(100*float(linenumber)/float(sum(1 for line in open("/tmp/bugs")))))+"%)\r")
+        bugs.append(prod.load(taskbug))
+        sys.stdout.flush()
+        time.sleep(0.1)
+
+    linenumber = 0
+
+    for bug in bugs:
+        linenumber = linenumber + 1
+        for task in bug.bug_tasks:
+            sys.stdout.write("Setting bug "+str(bug.id).strip()+" to Incomplete.\t("+str(round(100*float(linenumber)/float(sum(1 for line in open("/tmp/bugs")))))+"%)\r")
+            task.status = "Incomplete"
+            sys.stdout.flush()
+            time.sleep(0.3)
+            sys.stdout.write("Saving bug "+str(bug.id).strip()+" to Launchpad.\t("+str(round(100*float(linenumber)/float(sum(1 for line in open("/tmp/bugs")))))+"%)\r")
+            task.lp_save()
+            sys.stdout.flush()
+            time.sleep(0.3)
+
+        sys.stdout.write("Sent message to bug "+str(bug.id).strip()+".\t("+str(round(100*float(linenumber)/float(sum(1 for line in open("/tmp/bugs")))))+"%)\r")
+        bug.newMessage(content=message.replace("BUGNUMBER", str(bug.id).strip()))
+        sys.stdout.flush()
+        time.sleep(0.3)
+except KeyboardInterrupt:
+    time.sleep(0.1)
+    sys.stdout.flush()
+    print("Exited via Ctrl + C.")
